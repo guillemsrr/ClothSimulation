@@ -1,0 +1,15 @@
+﻿  render_prims.cpp
+  render.cpp
+  physics.cpp
+  main.cpp
+  imgui_impl_sdl_gl3.cpp
+  imgui_draw.cpp
+  imgui_demo.cpp
+  imgui.cpp
+  Generating Code...
+     Creating library E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\x64\Debug\GL_framework.lib and object E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\x64\Debug\GL_framework.exp
+  GL_framework.vcxproj -> E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\x64\Debug\GL_framework.exe
+  E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\code\libs\glew32.dll
+  1 archivo(s) copiado(s)
+  E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\code\libs\SDL2.dll
+  1 archivo(s) copiado(s)
