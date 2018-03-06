@@ -7,9 +7,8 @@
   imgui_demo.cpp
   imgui.cpp
   Generating Code...
-     Creating library E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\x64\Debug\GL_framework.lib and object E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\x64\Debug\GL_framework.exp
-  GL_framework.vcxproj -> E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\x64\Debug\GL_framework.exe
-  E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\code\libs\glew32.dll
-  1 archivo(s) copiado(s)
-  E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\glframework\code\libs\SDL2.dll
-  1 archivo(s) copiado(s)
+  LINK : E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\ClothSimulation\glframework\x64\Debug\GL_framework.exe not found or not built by the last incremental link; performing full link
+     Creating library E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\ClothSimulation\glframework\x64\Debug\GL_framework.lib and object E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\ClothSimulation\glframework\x64\Debug\GL_framework.exp
+  GL_framework.vcxproj -> E:\GUILLEM\Documents\Programming_Projects\Simulació de roba\ClothSimulation\glframework\x64\Debug\GL_framework.exe
+  0 archivo(s) copiado(s)
+  0 archivo(s) copiado(s)
