@@ -5,6 +5,8 @@
 
 //Functions:
 void PhysicsInit();
+void positionVerletSolver(float dt);
+void velocityVerletSolver(float dt);
 
 //Render prims:
 namespace Sphere
@@ -22,20 +24,32 @@ namespace ClothMesh
 #pragma region GUI Variables
 static bool playSimulation = true;
 int clicked = 0;
+float totalResetTime = 3.0f;
 glm::vec3 gravityAccel = { 0.0f,-9.81,0.0f };
 glm::vec2 k_stretch = { 1000.0f,50.0f };
 glm::vec2 k_shear = { 1000.0f,50.0f };
 glm::vec2 k_bend = { 1000.0f,50.0f };
-float particleLink = 0.5f;
-bool useCollisions = false;
-bool useSphereCollider = true;
+float particleLinkDistance = 0.5f;
+bool useCollisions = true;
+extern bool renderSphere = true;
+extern bool renderCloth = true;
 float elasticCoefficient = 0.5f;
 float frictionCoefficient = 0.1f;
 #pragma endregion
 
 //Other variables:
+float resetTime;
+//Sphere:
 glm::vec3 spherePosition;
 float sphereRadius;
+//Cloth:
+glm::vec3 clothArray[18][14];
+glm::vec3 lastClothArray[18][14];
+glm::vec3 auxPos;
+const float mass = 1.0f;
+//Forces:
+glm::vec3 sumF;
+
 
 bool show_test_window = false;
 void GUI()
@@ -57,6 +71,7 @@ void GUI()
 			PhysicsInit();
 			clicked--;
 		}
+		ImGui::DragFloat("Reset Time", &totalResetTime, 0.05f);
 		ImGui::InputFloat3("Gravity Accel", (float*)&gravityAccel);
 
 		if (ImGui::TreeNode("Spring parameters"))
@@ -64,7 +79,7 @@ void GUI()
 			ImGui::InputFloat2("k_stretch", (float*)&k_stretch);
 			ImGui::InputFloat2("k_shear", (float*)&k_shear);
 			ImGui::InputFloat2("k_bend", (float*)&k_bend);
-			ImGui::DragFloat("Particle Link", &particleLink, 0.05f);
+			ImGui::DragFloat("Particle Link", &particleLinkDistance, 0.05f);
 
 			ImGui::TreePop();
 		}
@@ -72,7 +87,7 @@ void GUI()
 		if (ImGui::TreeNode("Collisions"))
 		{
 			ImGui::Checkbox("Use Collisions", &useCollisions);
-			ImGui::Checkbox("Use Sphere Collider", &useSphereCollider);
+			ImGui::Checkbox("Use Sphere Collider", &renderSphere);
 			ImGui::DragFloat("Elastic Coefficient", &elasticCoefficient, 0.005f);
 			ImGui::DragFloat("Elastic Coefficient", &frictionCoefficient, 0.005f);
 
@@ -91,29 +106,79 @@ void GUI()
 }
 
 void PhysicsInit() {
-	if (useSphereCollider)//NO PINTA L'ESFERA!?
+
+	resetTime = 0.0f;
+	sumF = { 0.0f, 0.0f, 0.0f };
+
+	//Initialize Sphere at random position
+	if (renderSphere)
 	{
-		spherePosition = { -5.0f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), -5.0f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))) };
-		sphereRadius = 1.0f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f)));
+		spherePosition = { -5.0f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), -5+ static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))) };
+		sphereRadius = 0.5f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (2.0f)));
 		Sphere::updateSphere(spherePosition, sphereRadius);
 	}
-	//Iniciar la Cloth:
 
-
-	
+	//Initialize Cloth:
+	auxPos.z = -4.5f;
+	for (int i=0; i<18 ;i++)
+	{
+		auxPos.z += particleLinkDistance;
+		auxPos.x = -4.0f;
+		for (int j=0; j<14 ;j++)
+		{
+			auxPos.x += particleLinkDistance;
+			clothArray[i][j] = { auxPos.x , 9.5f , auxPos.z };
+			lastClothArray[i][j] = { auxPos.x , 9.5f , auxPos.z };
+		}
+	}
 }
 
 void PhysicsUpdate(float dt) {
 	if (playSimulation)
 	{
-		if (useCollisions)
+		if (resetTime >= totalResetTime)
 		{
-
+			clicked++;
+		}
+		else
+		{
+			resetTime += dt;
+			if (useCollisions)
+			{
+				//update Forces:
+				sumF = gravityAccel*mass;
+				//update Positions:
+				positionVerletSolver(dt);
+				//update Velocities:
+				velocityVerletSolver(dt);
+			}
+			ClothMesh::updateClothMesh((float*)clothArray);
 		}
 	}
 }
 
-//PREGUNTA: QUÈ S'HAVIA DE POSAR EN EL CLEANUP ANTERIOR? I AQUEST?
 void PhysicsCleanup() {
+
+}
+
+void positionVerletSolver(float dt)
+{
+	for (int i = 0; i<18; i++)
+	{
+		for (int j = 0; j<14; j++)
+		{
+			if (i == 0 && (j == 0 || j == 13))
+			{
+				break;
+			}
+			auxPos = clothArray[i][j];
+			clothArray[i][j] = clothArray[i][j] + (clothArray[i][j] - lastClothArray[i][j]) + (sumF / mass)*pow(dt, 2);
+			lastClothArray[i][j] = auxPos;
+		}
+	}
+}
+
+void velocityVerletSolver(float dt)
+{
 
 }
