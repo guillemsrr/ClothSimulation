@@ -5,8 +5,8 @@
 
 //Functions:
 void PhysicsInit();
-void positionVerletSolver(float dt);
-void velocityVerletSolver(float dt);
+void verletSolver(float dt);
+void updateForces();
 
 //Render prims:
 namespace Sphere
@@ -37,18 +37,25 @@ float elasticCoefficient = 0.5f;
 float frictionCoefficient = 0.1f;
 #pragma endregion
 
+const float k_damping = 0.5f;
+
 //Other variables:
 float resetTime;
 //Sphere:
 glm::vec3 spherePosition;
 float sphereRadius;
+
 //Cloth:
-glm::vec3 clothArray[18][14];
-glm::vec3 lastClothArray[18][14];
+//Position:
+glm::vec3 posCloth[18][14];
+glm::vec3 lastPosCloth[18][14];
 glm::vec3 auxPos;
-const float mass = 1.0f;
+//Velocity:
+glm::vec3 velCloth[18][14];
 //Forces:
-glm::vec3 sumF;
+glm::vec3 sumFCloth[18][14];
+
+const float mass = 1.0f;
 
 
 bool show_test_window = false;
@@ -58,7 +65,6 @@ void GUI()
 	ImGui::Begin("Physics Parameters", &show, 0);
 
 	{
-		//PREGUNTA: COM FER QUE COMENCIN ELS TREES OBERTS?
 		//ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiSetCond_FirstUseEver);
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//FrameRate
 		ImGui::Checkbox("Play simulation", &playSimulation);
@@ -108,7 +114,6 @@ void GUI()
 void PhysicsInit() {
 
 	resetTime = 0.0f;
-	sumF = { 0.0f, 0.0f, 0.0f };
 
 	//Initialize Sphere at random position
 	if (renderSphere)
@@ -126,9 +131,14 @@ void PhysicsInit() {
 		auxPos.x = -4.0f;
 		for (int j=0; j<14 ;j++)
 		{
+			//Position:
 			auxPos.x += particleLinkDistance;
-			clothArray[i][j] = { auxPos.x , 9.5f , auxPos.z };
-			lastClothArray[i][j] = { auxPos.x , 9.5f , auxPos.z };
+			posCloth[i][j] = { auxPos.x , 9.5f , auxPos.z };
+			lastPosCloth[i][j] = { auxPos.x , 9.5f , auxPos.z };
+			//Velocity:
+			velCloth[i][j] = { 0.f,0.f,0.f };
+			//Forces:
+			sumFCloth[i][j] = { 0.f,0.f,0.f };
 		}
 	}
 }
@@ -145,14 +155,12 @@ void PhysicsUpdate(float dt) {
 			resetTime += dt;
 			if (useCollisions)
 			{
-				//update Forces:
-				sumF = gravityAccel*mass;
-				//update Positions:
-				positionVerletSolver(dt);
-				//update Velocities:
-				velocityVerletSolver(dt);
+				//Forces:
+				updateForces();
+				//Position and Velocity:
+				verletSolver(dt);
 			}
-			ClothMesh::updateClothMesh((float*)clothArray);
+			ClothMesh::updateClothMesh((float*)posCloth);
 		}
 	}
 }
@@ -161,7 +169,7 @@ void PhysicsCleanup() {
 
 }
 
-void positionVerletSolver(float dt)
+void updateForces()
 {
 	for (int i = 0; i<18; i++)
 	{
@@ -169,16 +177,77 @@ void positionVerletSolver(float dt)
 		{
 			if (i == 0 && (j == 0 || j == 13))
 			{
-				break;
+				//do nothing
 			}
-			auxPos = clothArray[i][j];
-			clothArray[i][j] = clothArray[i][j] + (clothArray[i][j] - lastClothArray[i][j]) + (sumF / mass)*pow(dt, 2);
-			lastClothArray[i][j] = auxPos;
+			else
+			{
+				//top
+				if (i == 0)
+				{
+					//sumFCloth[i][j] = -(k_stretch*(glm::distance())
+				}
+				//bottom
+				else if(i==17)
+				{
+					//left:
+					if (j == 0)
+					{
+
+					}
+					else if (j == 13)
+					{
+
+					}
+					else
+					{
+
+					}
+				}
+				//middle
+				else
+				{
+					//left:
+					if (j == 0)
+					{
+
+					}
+					//right
+					else if (j == 13)
+					{
+
+					}
+					//middle
+					else
+					{
+
+					}
+				}
+
+			}
 		}
 	}
 }
 
-void velocityVerletSolver(float dt)
-{
 
+void verletSolver(float dt)
+{
+	for (int i = 0; i<18; i++)
+	{
+		for (int j = 0; j<14; j++)
+		{
+			if (i == 0 && (j == 0 || j == 13))
+			{
+				//do nothing
+			}
+			else
+			{
+				//Position:
+				auxPos = posCloth[i][j];
+				posCloth[i][j] = posCloth[i][j] + (posCloth[i][j] - lastPosCloth[i][j]) + (sumFCloth[i][j] / mass)*pow(dt, 2);
+				lastPosCloth[i][j] = auxPos;
+				//Velocity:
+				velCloth[i][j] = (posCloth[i][j] - lastPosCloth[i][j]) / dt;
+			}
+		}
+	}
 }
