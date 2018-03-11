@@ -340,11 +340,8 @@ void updateForces()
 							}
 						}
 					}
-					//summatory of downside's particle forces:
-					for (int aux = i + 1; aux < 18; aux++)
-					{
-						sumFCloth[i][j] += sumFCloth[aux][j];
-					}
+					//summatory of downside's particle force:
+					sumFCloth[i][j] += sumFCloth[i + 1][j];
 				}
 				//gravity
 				sumFCloth[i][j] += gravityAccel * mass;
