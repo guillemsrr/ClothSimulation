@@ -1,6 +1,7 @@
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_sdl_gl3.h>
 #include <glm\glm.hpp>
+#include <iostream>
 
 
 //Functions:
@@ -183,6 +184,10 @@ void updateForces()
 				//bottom i 
 				if(i==17)
 				{
+					std::cout<<"j = "<<j << std::endl;
+					std::cout << sumFCloth[i][j].x << std::endl;
+					std::cout << sumFCloth[i][j].y << std::endl;
+					std::cout << sumFCloth[i][j].z << std::endl << std::endl;
 					//left j
 					if (j == 0)
 					{
@@ -341,10 +346,10 @@ void updateForces()
 						}
 					}
 					//summatory of downside's particle force:
-					sumFCloth[i][j] += sumFCloth[i + 1][j];
+					//sumFCloth[i][j] += sumFCloth[i + 1][j];
 				}
 				//gravity
-				sumFCloth[i][j] += gravityAccel * mass;
+				sumFCloth[i][j] += gravityAccel * mass*(18.0f-(float)i);
 			}
 		}
 	}
