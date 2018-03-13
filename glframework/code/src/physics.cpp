@@ -9,6 +9,7 @@ void PhysicsInit();
 void verletSolver(float dt);
 void updateForces();
 glm::vec3 springForce(glm::vec3 p1, glm::vec3 p2, glm::vec3 v1, glm::vec3 v2, glm::vec2 k);
+void sphereCollisions();
 
 //Render prims:
 namespace Sphere
@@ -41,6 +42,7 @@ float frictionCoefficient = 0.1f;
 
 //Other variables:
 float resetTime;
+const float reducer = 10.0f;
 //Sphere:
 glm::vec3 spherePosition;
 float sphereRadius;
@@ -52,9 +54,9 @@ glm::vec3 lastPosCloth[18][14];
 glm::vec3 auxPos;
 //Velocity:
 glm::vec3 velCloth[18][14];
+glm::vec3 lastVelCloth[18][14];
 //Forces:
 glm::vec3 sumFCloth[18][14];
-
 const float mass = 1.0f;
 
 
@@ -153,13 +155,22 @@ void PhysicsUpdate(float dt) {
 		else
 		{
 			resetTime += dt;
-			if (useCollisions)
+
+			//for best performance, we reduce the given time and operate 
+			for (int i = 0; i <= reducer; i++)
 			{
 				//Forces:
-				updateForces();//preguntar a Jesús
+				updateForces();
 				//Position and Velocity:
-				verletSolver(dt);
+				verletSolver(dt/ reducer);
+
+				//Collisions:
+				if (useCollisions)
+				{
+					sphereCollisions();
+				}
 			}
+			
 			ClothMesh::updateClothMesh((float*)posCloth);
 		}
 	}
@@ -168,12 +179,11 @@ void PhysicsUpdate(float dt) {
 void PhysicsCleanup() {
 
 }
-
 void updateForces()
 {
-	for (int i = 17; i>=0; i--)//start with the last row
+	for (int i = 0; i < 18; i++)
 	{
-		for (int j = 0; j<14; j++)
+		for (int j = 0; j < 14; j++)
 		{
 			if (i == 0 && (j == 0 || j == 13))
 			{
@@ -181,175 +191,66 @@ void updateForces()
 			}
 			else
 			{
-				//bottom i 
-				if(i==17)
+				//gravity Force
+				sumFCloth[i][j] = gravityAccel * mass;
+
+				if (i - 1 >= 0)
 				{
-					std::cout<<"j = "<<j << std::endl;
-					std::cout << sumFCloth[i][j].x << std::endl;
-					std::cout << sumFCloth[i][j].y << std::endl;
-					std::cout << sumFCloth[i][j].z << std::endl << std::endl;
-					//left j
-					if (j == 0)
+					//stretch up
+					sumFCloth[i][j]+= springForce(posCloth[i][j], posCloth[i-1][j], velCloth[i][j], velCloth[i-1][j], k_stretch);
+					if (i - 2 >= 0)
 					{
-						//structural
-						sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j + 1], velCloth[i][j], velCloth[i][j + 1], k_stretch);
-						sumFCloth[i][j]+= springForce(posCloth[i][j], posCloth[i-1][j], velCloth[i][j], velCloth[i-1][j], k_stretch);
-						//shear
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j+1], velCloth[i][j], velCloth[i - 1][j+1], k_shear);
-						//bending
+						//bending up
 						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
+					}
+					if (j - 1 >= 0)
+					{
+						//shear left
+						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j - 1], velCloth[i][j], velCloth[i - 1][j - 1], k_shear);
+					}
+					if (j + 1 < 14)
+					{
+						//shear right
+						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j + 1], velCloth[i][j], velCloth[i - 1][j + 1], k_shear);
+					}
+				}
+				//vertical stretch down
+				if (i + 1 <18)
+				{
+					sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j], velCloth[i][j], velCloth[i + 1][j], k_stretch);
+					if (i + 2 <18)//bending down
+					{
+						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
+					}
+					if (j - 1 >= 0)
+					{
+						//shear left
+						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j - 1], velCloth[i][j], velCloth[i + 1][j - 1], k_shear);
+					}
+					if (j + 1 < 14)
+					{
+						//shear left
+						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j + 1], velCloth[i][j], velCloth[i + 1][j + 1], k_shear);
+					}
+				}
+				//horizontal stretch left
+				if (j - 1 >= 0)
+				{
+					sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j-1], velCloth[i][j], velCloth[i][j-1], k_stretch);
+					if (j - 2 >= 0)//bending left
+					{
+						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j-2], velCloth[i][j], velCloth[i][j-2], k_bend);
+					}
+				}
+				//horizontal stretch right
+				if (j + 1 < 14)
+				{
+					sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j+1], velCloth[i][j], velCloth[i][j+1], k_stretch);
+					if (j + 2 < 14)//bending right
+					{
 						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j+2], velCloth[i][j], velCloth[i][j+2], k_bend);
 					}
-					//right j
-					else if (j == 13)
-					{
-						//structural
-						sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j - 1], velCloth[i][j], velCloth[i][j - 1], k_stretch);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j], velCloth[i][j], velCloth[i - 1][j], k_stretch);
-						//shear
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j - 1], velCloth[i][j], velCloth[i - 1][j - 1], k_shear);
-						//bending
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-					}
-					//middle j
-					else
-					{
-						//structural
-						sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j + 1], velCloth[i][j], velCloth[i][j + 1], k_stretch);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j], velCloth[i][j], velCloth[i - 1][j], k_stretch);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 1], velCloth[i][j], velCloth[i][j - 1], k_stretch);
-						//shear
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j + 1], velCloth[i][j], velCloth[i - 1][j + 1], k_shear);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j - 1], velCloth[i][j], velCloth[i - 1][j - 1], k_shear);
-						//bending
-						if (j == 1)//second column, no bending to the left
-						{
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j + 2], velCloth[i][j], velCloth[i][j + 2], k_bend);
-						}
-						else if (j == 12)//no bending to the right
-						{
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-						}
-						else//full bending
-						{
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j + 2], velCloth[i][j], velCloth[i][j + 2], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-						}
-					}
 				}
-				else
-				{
-					//top i
-					if (i == 0)
-					{
-						//structural
-						sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j + 1], velCloth[i][j], velCloth[i][j + 1], k_stretch);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 1], velCloth[i][j], velCloth[i][j - 1], k_stretch);
-						//shear
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j + 1], velCloth[i][j], velCloth[i + 1][j + 1], k_shear);
-						sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j - 1], velCloth[i][j], velCloth[i + 1][j - 1], k_shear);
-						//bending
-						if (j<2) //no bending to the left
-						{
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j + 2], velCloth[i][j], velCloth[i][j + 2], k_bend);
-						}
-						else if (j > 11)//no bending to the right
-						{
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-						}
-						else//full bending
-						{
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j + 2], velCloth[i][j], velCloth[i][j + 2], k_bend);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-						}
-					}
-					//middle i
-					else
-					{
-						//left j
-						if (j == 0)
-						{
-							//structural
-							sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j + 1], velCloth[i][j], velCloth[i][j + 1], k_stretch);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j], velCloth[i][j], velCloth[i - 1][j], k_stretch);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j], velCloth[i][j], velCloth[i + 1][j], k_stretch);
-							//shear
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j + 1], velCloth[i][j], velCloth[i - 1][j + 1], k_shear);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j + 1], velCloth[i][j], velCloth[i + 1][j + 1], k_shear);
-							//bending
-							if (i != 1)//bend up
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-							}
-							if (i != 16)//bend down
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
-							}
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j + 2], velCloth[i][j], velCloth[i][j + 2], k_bend);
-						}
-						//right j
-						else if (j == 13)
-						{
-							//structural
-							sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j - 1], velCloth[i][j], velCloth[i][j - 1], k_stretch);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j], velCloth[i][j], velCloth[i - 1][j], k_stretch);
-							//shear
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j - 1], velCloth[i][j], velCloth[i - 1][j - 1], k_shear);
-							//bending
-							if (i != 1)//bend up
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-							}
-							if (i != 16)//bend down
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
-							}
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-						}
-						//middle j
-						else
-						{
-							//structural
-							sumFCloth[i][j] = springForce(posCloth[i][j], posCloth[i][j + 1], velCloth[i][j], velCloth[i][j + 1], k_stretch);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j], velCloth[i][j], velCloth[i - 1][j], k_stretch);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 1], velCloth[i][j], velCloth[i][j - 1], k_stretch);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j], velCloth[i][j], velCloth[i + 1][j], k_stretch);
-							//shear
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j + 1], velCloth[i][j], velCloth[i - 1][j + 1], k_shear);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 1][j - 1], velCloth[i][j], velCloth[i - 1][j - 1], k_shear);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j + 1], velCloth[i][j], velCloth[i + 1][j + 1], k_shear);
-							sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 1][j - 1], velCloth[i][j], velCloth[i + 1][j - 1], k_shear);
-							//bending
-							if (i != 1)//bend up
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i - 2][j], velCloth[i][j], velCloth[i - 2][j], k_bend);
-							}
-							if (i != 16)//bend down
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i + 2][j], velCloth[i][j], velCloth[i + 2][j], k_bend);
-							}
-							if (j != 12)//bend left
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j - 2], velCloth[i][j], velCloth[i][j - 2], k_bend);
-							}
-							if (j != 1)//bend right
-							{
-								sumFCloth[i][j] += springForce(posCloth[i][j], posCloth[i][j + 2], velCloth[i][j], velCloth[i][j + 2], k_bend);
-							}
-						}
-					}
-					//summatory of downside's particle force:
-					//sumFCloth[i][j] += sumFCloth[i + 1][j];
-				}
-				//gravity
-				sumFCloth[i][j] += gravityAccel * mass*(18.0f-(float)i);
 			}
 		}
 	}
@@ -357,7 +258,10 @@ void updateForces()
 
 glm::vec3 springForce(glm::vec3 p1, glm::vec3 p2, glm::vec3 v1, glm::vec3 v2, glm::vec2 k)
 {
+	//with damping
 	return -(k.x*(glm::distance(p1, p2) - particleLinkDistance) + k.y*glm::dot((v1 - v2), (p1 - p2) / glm::distance(p1, p2)))*(p1 - p2) / glm::distance(p1, p2);
+	//without damping
+	//return -(k.x*(glm::distance(p1, p2) - particleLinkDistance))*(p1 - p2) / glm::distance(p1, p2);
 }
 
 
@@ -378,7 +282,36 @@ void verletSolver(float dt)
 				posCloth[i][j] = posCloth[i][j] + (posCloth[i][j] - lastPosCloth[i][j]) + (sumFCloth[i][j] / mass)*pow(dt, 2);
 				lastPosCloth[i][j] = auxPos;
 				//Velocity:
+				lastVelCloth[i][j] = velCloth[i][j];
 				velCloth[i][j] = (posCloth[i][j] - lastPosCloth[i][j]) / dt;
+			}
+		}
+	}
+}
+
+void sphereCollisions()
+{
+	glm::vec3  normalTangentPlane;
+	float d;
+	glm::vec3 normalVelocity;
+	glm::vec3 tangentVelocity;
+	for (int i = 0; i < 18; i++)
+	{
+		for (int j = 0; j < 14; j++)
+		{
+			if (glm::distance(posCloth[i][j], spherePosition) < sphereRadius)
+			{
+				auxPos = lastPosCloth[i][j];
+				while (glm::distance(auxPos, spherePosition) > sphereRadius)
+				{
+					auxPos += lastVelCloth[i][j] * 0.1f;
+				}
+				normalTangentPlane = auxPos - spherePosition;
+				d = -glm::dot(normalTangentPlane, auxPos);
+				posCloth[i][j] = posCloth[i][j] - (1.0f + elasticCoefficient) * (glm::dot(normalTangentPlane, posCloth[i][j]) + d)*(normalTangentPlane);
+				normalVelocity = glm::dot(normalTangentPlane, lastVelCloth[i][j])*normalTangentPlane;
+				tangentVelocity = lastVelCloth[i][j] - normalVelocity;
+				velCloth[i][j] = velCloth[i][j] - (1.0f + elasticCoefficient) * glm::dot(normalTangentPlane, velCloth[i][j])*normalTangentPlane - frictionCoefficient * tangentVelocity;
 			}
 		}
 	}
