@@ -173,8 +173,6 @@ void PhysicsUpdate(float dt) {
 			{
 				//Forces:
 				updateForces();
-				//Position and Velocity:
-				verletSolver(deltaTime);
 
 				//Collisions:
 				if (useCollisions)
@@ -182,6 +180,9 @@ void PhysicsUpdate(float dt) {
 					allParticlePlaneCollisions();
 					//sphereCollisions();
 				}
+
+				//Position and Velocity:
+				verletSolver(deltaTime);
 			}
 			ClothMesh::updateClothMesh((float*)posCloth);
 		}
@@ -330,14 +331,17 @@ void checkParticlePlaneCollision(glm::vec3 normal, float d, int i, int j)
 
 void particlePlaneCollision(glm::vec3 normal, float d, int i, int j)
 {
+	//Position Mirror:
+	posCloth[i][j] = posCloth[i][j] - (1.f + elasticCoefficient) * (glm::dot(normal, posCloth[i][j]) + d)* normal;//*normal?? dot product.
 
-	////Position:
-	//auxPos = posCloth[i][j];
-	//posCloth[i][j] = posCloth[i][j] + (posCloth[i][j] - lastPosCloth[i][j]) + (sumFCloth[i][j] / mass)*pow(deltaTime, 2);
-	//lastPosCloth[i][j] = auxPos;
-	////Velocity:
-	//lastVelCloth[i][j] = velCloth[i][j];
-	//velCloth[i][j] = (posCloth[i][j] - lastPosCloth[i][j]) / deltaTime;
+	//Last Position Mirror:
+	auxPos = posCloth[i][j];
+	lastPosCloth[i][j] = lastPosCloth[i][j] - (1.f + elasticCoefficient) * (glm::dot(normal, lastPosCloth[i][j]) + d)* normal;
+
+	//Velocity Mirror:
+	glm::vec3 normalVelocity = glm::dot(normal, velCloth[i][j])*normal;
+	glm::vec3 tangentVelocity = velCloth[i][j] - normalVelocity;
+	velCloth[i][j] = velCloth[i][j] - (1.f + elasticCoefficient)*(glm::dot(normal, velCloth[i][j]))*normal - frictionCoefficient * tangentVelocity;
 }
 
 void sphereCollisions()
