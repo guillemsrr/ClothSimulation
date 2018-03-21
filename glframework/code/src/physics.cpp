@@ -2,12 +2,13 @@
 #include <imgui\imgui_impl_sdl_gl3.h>
 #include <glm\glm.hpp>
 #include <iostream>
+#include <time.h>
 
 
 //Functions:
 void PhysicsInit();
 void verletSolver(float dt);
-void updateForces();
+void updateForces(); 
 glm::vec3 springForce(glm::vec3 p1, glm::vec3 p2, glm::vec3 v1, glm::vec3 v2, glm::vec2 k, float particleLinkDistance);
 void allParticlePlaneCollisions();
 void particlePlaneCollision(glm::vec3 normal, float d, int i, int j);
@@ -40,7 +41,7 @@ float shearDistance, bendDistance;
 bool useCollisions = true;
 extern bool renderSphere = true;
 extern bool renderCloth = true;
-float elasticCoefficient = 0.5f;
+float elasticCoefficient = 0.2f;
 float frictionCoefficient = 0.1f;
 #pragma endregion
 
@@ -106,7 +107,7 @@ void GUI()
 			ImGui::Checkbox("Use Collisions", &useCollisions);
 			ImGui::Checkbox("Use Sphere Collider", &renderSphere);
 			ImGui::DragFloat("Elastic Coefficient", &elasticCoefficient, 0.005f);
-			ImGui::DragFloat("Elastic Coefficient", &frictionCoefficient, 0.005f);
+			ImGui::DragFloat("Friction Coefficient", &frictionCoefficient, 0.005f);
 
 			ImGui::TreePop();
 		}
@@ -123,7 +124,7 @@ void GUI()
 }
 
 void PhysicsInit() {
-
+	srand(time(NULL));
 	resetTime = 0.0f;
 	shearDistance = sqrt(2)*stretchDistance;
 	bendDistance = 2 * stretchDistance;
@@ -131,8 +132,8 @@ void PhysicsInit() {
 	//Initialize Sphere at random position
 	if (renderSphere)
 	{
-		spherePosition = { -5.0f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), -5+ static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))) };
-		sphereRadius = 0.5f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (2.0f)));
+		spherePosition = { -5.0f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))), static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (5.0f))), -5+ static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (10.0f))) };
+		sphereRadius = 1.f + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (2.0f)));
 		Sphere::updateSphere(spherePosition, sphereRadius);
 	}
 
@@ -169,7 +170,7 @@ void PhysicsUpdate(float dt) {
 			resetTime += dt;
 
 			//for best performance, we reduce the given time and operate 
-			for (int i = 0; i <= reducer; i++)
+			for (int i = 0; i <= (int)reducer; i++)
 			{
 				//Forces:
 				updateForces();
@@ -178,7 +179,10 @@ void PhysicsUpdate(float dt) {
 				if (useCollisions)
 				{
 					allParticlePlaneCollisions();
-					//sphereCollisions();
+					if (renderSphere) 
+					{
+						sphereCollisions();
+					}
 				}
 
 				//Position and Velocity:
@@ -332,41 +336,69 @@ void checkParticlePlaneCollision(glm::vec3 normal, float d, int i, int j)
 void particlePlaneCollision(glm::vec3 normal, float d, int i, int j)
 {
 	//Position Mirror:
-	posCloth[i][j] = posCloth[i][j] - (1.f + elasticCoefficient) * (glm::dot(normal, posCloth[i][j]) + d)* normal;//*normal?? dot product.
+	posCloth[i][j] = posCloth[i][j] - (1.f + elasticCoefficient) * (glm::dot(normal, posCloth[i][j]) + d)* normal;
 
 	//Last Position Mirror:
-	auxPos = posCloth[i][j];
+	
+	//without friction:
 	lastPosCloth[i][j] = lastPosCloth[i][j] - (1.f + elasticCoefficient) * (glm::dot(normal, lastPosCloth[i][j]) + d)* normal;
 
+	//with friction:
+	auxPos = lastPosCloth[i][j] - posCloth[i][j];
+	glm::vec3 normalPos = glm::dot(normal, auxPos)*normal;
+	glm::vec3 tangentPos = auxPos - normalPos;
+	lastPosCloth[i][j] = lastPosCloth[i][j] - (frictionCoefficient)* tangentPos;
+
+
 	//Velocity Mirror:
-	glm::vec3 normalVelocity = glm::dot(normal, velCloth[i][j])*normal;
-	glm::vec3 tangentVelocity = velCloth[i][j] - normalVelocity;
-	velCloth[i][j] = velCloth[i][j] - (1.f + elasticCoefficient)*(glm::dot(normal, velCloth[i][j]))*normal - frictionCoefficient * tangentVelocity;
+	//glm::vec3 normalVelocity = glm::dot(normal, velCloth[i][j])*normal;
+	//glm::vec3 tangentVelocity = velCloth[i][j] - normalVelocity;
+	velCloth[i][j] = velCloth[i][j] - (1.f + elasticCoefficient)*(glm::dot(normal, velCloth[i][j]))*normal;// -frictionCoefficient * tangentVelocity;
 }
 
 void sphereCollisions()
 {
 	glm::vec3  normalTangentPlane;
 	float d;
-	glm::vec3 normalVelocity;
-	glm::vec3 tangentVelocity;
+	//Cerca binaria:
+	glm::vec3 auxLast;
+	glm::vec3 cuttingPoint;
+
 	for (int i = 0; i < 18; i++)
 	{
 		for (int j = 0; j < 14; j++)
 		{
 			if (glm::distance(posCloth[i][j], spherePosition) < sphereRadius)
 			{
-				auxPos = lastPosCloth[i][j];
-				while (glm::distance(auxPos, spherePosition) > sphereRadius)
+				////Ray cast manual:
+				//auxPos = lastPosCloth[i][j];
+				//while (glm::distance(auxPos, spherePosition) > sphereRadius)
+				//{
+				//	auxPos += lastVelCloth[i][j] * 0.1f;
+				//}
+
+				//Cerca dicotòmica:
+				auxLast = lastPosCloth[i][j];
+				auxPos = posCloth[i][j];
+				cuttingPoint = auxLast;
+				
+				while(glm::distance(cuttingPoint, spherePosition) <= sphereRadius - 0.001f || glm::distance(cuttingPoint, spherePosition) >= sphereRadius + 0.001f)
+				//for(int i=0;i<10;i++)
 				{
-					auxPos += lastVelCloth[i][j] * 0.1f;
+					if (glm::distance(cuttingPoint, spherePosition) > sphereRadius)
+					{
+						auxLast = cuttingPoint;
+					}
+					else
+					{
+						auxPos = cuttingPoint;
+					}
+					cuttingPoint = (auxLast + auxPos) / 2.f;
 				}
-				normalTangentPlane = auxPos - spherePosition;
-				d = -glm::dot(normalTangentPlane, auxPos);
-				posCloth[i][j] = posCloth[i][j] - (1.0f + elasticCoefficient) * (glm::dot(normalTangentPlane, posCloth[i][j]) + d)*(normalTangentPlane);
-				normalVelocity = glm::dot(normalTangentPlane, lastVelCloth[i][j])*normalTangentPlane;
-				tangentVelocity = lastVelCloth[i][j] - normalVelocity;
-				velCloth[i][j] = velCloth[i][j] - (1.0f + elasticCoefficient) * glm::dot(normalTangentPlane, velCloth[i][j])*normalTangentPlane - frictionCoefficient * tangentVelocity;
+
+				normalTangentPlane = cuttingPoint - spherePosition;
+				d = -glm::dot(normalTangentPlane, cuttingPoint);
+				particlePlaneCollision(normalTangentPlane, d, i, j);
 			}
 		}
 	}
