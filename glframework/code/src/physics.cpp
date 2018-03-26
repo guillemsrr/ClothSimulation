@@ -194,7 +194,7 @@ void PhysicsUpdate(float dt) {
 }
 
 void PhysicsCleanup() {
-
+	ClothMesh::cleanupClothMesh();
 }
 void updateForces()
 {
@@ -310,17 +310,17 @@ void allParticlePlaneCollisions()
 		for (int j = 0; j < 14; j++)
 		{
 			//left plane
-			checkParticlePlaneCollision(XplaneNormal, 5, i, j);
+			checkParticlePlaneCollision(XplaneNormal, 5.f, i, j);
 			//right plane
-			checkParticlePlaneCollision(-XplaneNormal, 5, i, j);
+			checkParticlePlaneCollision(-XplaneNormal, 5.f, i, j);
 			//back plane
-			checkParticlePlaneCollision(ZplaneNormal, 5, i, j);
+			checkParticlePlaneCollision(ZplaneNormal, 5.f, i, j);
 			//front plane
-			checkParticlePlaneCollision(-ZplaneNormal, 5, i, j);
+			checkParticlePlaneCollision(-ZplaneNormal, 5.f, i, j);
 			//down plane
-			checkParticlePlaneCollision(YplaneNormal, 0, i, j);
+			checkParticlePlaneCollision(YplaneNormal, 0.f, i, j);
 			//up plane
-			checkParticlePlaneCollision(-YplaneNormal, 10, i, j);
+			checkParticlePlaneCollision(-YplaneNormal, 10.f, i, j);
 		}
 	}
 }
